@@ -1,0 +1,157 @@
+\documentclass[12pt,twoside,letterpaper]{article}
+
+\newcommand{\reporttitle}{Distributed Learning and Control of Cooperative Quadrotor Load Transportation}
+\newcommand{\reportauthorOne}{Gao Yichao}
+\newcommand{\cidOne}{A0298755E}
+% \newcommand{\reportauthorTwo}{Student 2}
+% \newcommand{\cidTwo}{your id number}
+% \newcommand{\reporttype}{Coursework}
+% \bibliographystyle{plain}
+
+% include files that load packages and define macros
+\input{includes} % various packages needed for maths etc.
+\input{notation} % short-hand notation and macros
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+% front page
+\input{titlepage}
+
+\begin{center}
+    \section*{Abstract}
+\end{center}
+\addcontentsline{toc}{section}{Abstract}
+
+\newpage
+
+\begin{center}
+    \section*{Acknowledgement}
+\end{center}
+\addcontentsline{toc}{section}{Acknowledgement}
+My time as a Master’s student at the National University of Singapore, in the Department of Electrical and Computer Engineering, has been both a challenging and enriching experience. Over the course of this journey, I’ve had the privilege to engage in academic research, explore new areas within engineering, and develop both personally and intellectually. This report is a reflection of that journey—shaped not only by my efforts but also by the generous support, guidance, and encouragement I’ve received from many along the way.
+
+Foremost among those I wish to acknowledge is my supervisor, Dr. Zhao Lin, whose exceptional mentorship has been profoundly influential throughout my academic journey. As a distinguished scholar in optimization and learning theory, Prof. Zhao has provided invaluable guidance that has significantly shaped the direction and depth of my research. His insightful feedback and unwavering support have greatly enriched my understanding of these complex fields and have been instrumental in my academic and personal development.  Moreover, Prof. Zhao's integrity, genuine kindness, and unwavering support have greatly inspired me and shaped my approach to both research and collaboration.
+
+I would also like to extend my heartfelt thanks to Dr. Wang Bingheng for his continuous support in both academic research and coursework. Dr. Wang is a dedicated and meticulous scholar, whose seriousness and unwavering commitment to scientific inquiry have profoundly influenced me. His disciplined approach to research and his high standards of academic excellence serve as a source of inspiration. His mentorship has played a crucial role in my development, and I am deeply thankful for his guidance.
+
+In addition, I would like to express my gratitude for the help and support of many researchers, friends, and staff, including but not limited to Dr. He Lei, Sun Tianchen, Sima Kuankuan, Huang Rui and Chen Xin. Their valuable advice and insightful perspectives on academic topics have significantly contributed to my progress in research. Their knowledge and discussions on cutting-edge UAV control technologies have broadened my understanding and deepened my interest in the field. Special thanks go to Tang Longbin, a close friend and collaborative partner, whose support in coursework and enthusiastic teamwork made the learning experience both productive and enjoyable. 
+
+Lastly, I extend my deepest gratitude to my family—my parents and my sister—for their unwavering love and support. Their encouragement and belief in me have been my foundation throughout this journey, giving me the strength and confidence to pursue my goals.
+
+\newpage
+
+
+\begin{center}
+    \section*{Declaration}
+\end{center}
+\addcontentsline{toc}{section}{Declaration}
+
+\vspace{2cm}
+
+\begin{center}
+    \begin{minipage}{0.8\textwidth}
+        \centering
+        \doublespacing
+        \justifying
+        \large
+        \begin{center}
+            I hereby declare that this report is my original work and it has been written by me in its entirety. 
+            
+            I have duly acknowledged all the sources of information which have been used in the report.
+        \end{center}
+    \end{minipage}
+    \vspace{2cm}  
+
+    \begin{figure}[H]
+    \centering
+    \begin{minipage}{0.6\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/Signature.jpeg}
+        \vspace{0.5cm}
+        \caption*{April 1st, 2025}
+        \label{fig:minipage-example}
+    \end{minipage}
+\end{figure}
+
+    
+\end{center}
+\newpage
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%% table of content
+%If a table of content is needed, simply uncomment the following lines
+\begin{center}
+\tableofcontents
+\end{center}
+\newpage
+
+\begin{center}
+    \listoffigures
+\end{center}
+\addcontentsline{toc}{section}{List of Figures}
+
+
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%% Main document
+% \section*{Note:}
+% \emph{This document is intended to provide a sample structure for the reports in ME303 at the University of Waterloo. }
+
+\section{Introduction}
+Aerial transportation using multiple quadrotors offers greater load capacity and system reliability compared to a single quadrotor. Cables are an effective way to attach the load, as they are lightweight, simple, and well-suited for large loads. In a multilift setup, multiple quadrotors work together to carry a cable-suspended load. However, this approach introduces challenges. The motion of each quadrotor is constrained by cable length when taut and dynamically linked to the load through tension forces. The system also exhibits hybrid dynamics due to transitions between slack and taut cable states, making control more complex. Effective coordination is required to avoid cable slack, maintain safe distances, manage control limits, and ensure scalability.
+
+Research on motion planning and control of the multilift system has progressed over the years. Early studies modeled the load as a point mass and considered the cable tensions as external disturbances acting on the quadrotors.\cite{Geo_point},\cite{2018point}. However, neglecting the load dynamics during control design can reduce the system's maneuverability, limiting its application to quasistatic or slow trajectories. To enhance control performance during agile maneuvers,
+
+In summary, the main contributions of this report are as follows:
+\begin{enumerate}
+    \item 
+    \item 
+    \item 
+\end{enumerate}
+
+
+\newpage
+
+
+\section{Model of Multilift Systems}
+
+\newpage
+
+
+\section{Simulator Design}
+\subsection{Quadrotor Dynamics}
+\subsection{Cable Model}
+
+\newpage
+
+
+\section{Multilift Algorithm Implementation}
+\subsection{Auto-Multilift Algorithm}
+\subsection{Low-levle Controller}
+\subsection{ROS System Design}
+% \subsection{Algorithm Accleration}
+
+\newpage
+\section{Experimental Results}
+
+\newpage
+\section{Conclusion}
+
+\newpage
+\section{Future Works}
+
+
+\newpage
+\addcontentsline{toc}{section}{References}
+\bibliographystyle{IEEEtran}
+\bibliography{mybib}
+\newpage
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 
