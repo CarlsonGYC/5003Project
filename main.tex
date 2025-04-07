@@ -100,41 +100,509 @@ Lastly, I extend my deepest gratitude to my family—my parents and my sister—
 % \emph{This document is intended to provide a sample structure for the reports in ME303 at the University of Waterloo. }
 
 \section{Introduction}
-Aerial transportation using multiple quadrotors offers greater load capacity and system reliability compared to a single quadrotor. Cables are an effective way to attach the load, as they are lightweight, simple, and well-suited for large loads. In a multilift setup, multiple quadrotors work together to carry a cable-suspended load. However, this approach introduces challenges. The motion of each quadrotor is constrained by cable length when taut and dynamically linked to the load through tension forces. The system also exhibits hybrid dynamics due to transitions between slack and taut cable states, making control more complex. Effective coordination is required to avoid cable slack, maintain safe distances, manage control limits, and ensure scalability.
+Aerial transportation using multiple quadrotors has garnered substantial interest in the robotics and unmanned aerial vehicle (UAV) communities due to its enhanced load-carrying capacity and improved robustness compared to single-vehicle systems. By attaching the payload via lightweight cables, multi-lift configurations can accommodate large and potentially heavy loads. However, these systems are inherently complex: each quadrotor’s motion is constrained by cable length when taut, and dynamic coupling through the cables introduces intricate force interactions among vehicles and the load. Additionally, the system exhibits hybrid dynamics owing to transitions between slack and taut states, rendering motion planning and control significantly more challenging. Achieving safe and effective coordination requires addressing cable slack avoidance, maintaining inter-vehicle distances, managing control limits, and ensuring scalability with an increasing number of UAVs.
 
-Research on motion planning and control of the multilift system has progressed over the years. Early studies modeled the load as a point mass and considered the cable tensions as external disturbances acting on the quadrotors.\cite{Geo_point},\cite{2018point}. However, neglecting the load dynamics during control design can reduce the system's maneuverability, limiting its application to quasistatic or slow trajectories. To enhance control performance during agile maneuvers,
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{figures/Multilift.png}
+    \caption{Illustration of Multilift Problems}
+    \label{multilift}
+\end{figure}
 
-In summary, the main contributions of this report are as follows:
-\begin{enumerate}
-    \item 
-    \item 
-    \item 
+Early investigations into multi-lift aerial transport often simplified the payload as a point mass, wherein cable tensions were treated as external disturbances acting on the quadrotors \cite{Geo_point},\cite{2018point}. Although these models facilitated initial theoretical and experimental studies, they limited achievable maneuvers to near-quasistatic or slow trajectories. Subsequent research endeavored to capture the dynamic coupling between quadrotors and payload more accurately. In particular, \cite{2014Geo} introduced a geometric control framework that explicitly accounts for the payload’s dynamics as a point mass. Further enhancements included modeling the payload as a full six-degrees-of-freedom rigid body, enabling higher-fidelity control but demanding at least three quadrotors for complete attitude and position regulation \cite{sreenath2013dynamics},\cite{lee2017geometric}.
+
+More recent work has pushed toward agile and robust control of cable-suspended loads. Sun \cite{sun2025agilecooperativeaerialmanipulation} proposed a model predictive control (MPC)-based solution for high-acceleration payload transport without onboard sensors, addressing dynamic coupling and load uncertainties. However, the reliance on carefully tuned MPC parameters remained a practical challenge. Wang \cite{wang2025safeagiletransportationcablesuspended} introduced a distributed, learning-based approach that enables real-time trajectory planning and control in cluttered environments, though this method simplifies the payload to a point mass and neglects its full dynamic behavior.
+
+Auto-Multilift \cite{multilift} offers a distributed closed-loop learning framework to automatically adapt MPC hyperparameters for multi-lift systems. At its core, a Distributed Sensitivity Propagation (DSP) algorithm is employed to compute closed-loop state sensitivities in parallel, informing a distributed policy gradient method that trains deep neural networks using tracking error feedback. This approach leverages the Safe-PDP-based MPC gradient solver, improving scalability and ensuring robust trajectory tracking compared to open-loop MPC parameter tuning.
+
+To investigate the stability and practical feasibility of Auto-Multilift, a high-fidelity simulator that accurately captures multi-lift aerial systems is essential. Hence, this work extends Isaac Sim and Pegasus \cite{pegasus} with refined quadrotor dynamics and flexible cable modeling. In particular, the cable model is formulated as a mass-spring-damper (MSD) system with multiple joints, capturing the high stiffness required in real-world tethering scenarios. Traditional simulators, such as Gazebo and MuJoCo, often struggle to simulate such highly stiff, multi-joint connections in real time. By leveraging the high computational power and stability of PhysX through the fast TGS (Temporal Gauss-Seidel) numerical solver, Isaac Sim can now operate in real time while accurately reproducing the physics of complex cable dynamics.
+
+A ROS-based communication pipeline is also developed to facilitate software-in-the-loop (SITL) simulation with PX4, ensuring precise time synchronization and reliable exchange of states between the flight controller, ground station, and simulation environment. Additionally, a geometric controller with decoupled yaw-axis regulation is integrated as the low-level controller for individual UAV stabilization and trajectory tracking.
+
+\textbf{The main contributions of this work are as follows:} \begin{enumerate} 
+\item \textbf{Development of a high-fidelity simulation environment for multi-lift aerial systems}: This environment, built upon Isaac Sim and Pegasus, incorporates improved quadrotor and cable dynamics through an MSD model with multiple joints. 
+\item \textbf{Design of a ROS-based SITL pipeline}: A specialized communication framework is implemented to ensure consistent time synchronization and robust state exchange among PX4, the ground control station, and the simulator. 
+\item \textbf{Integration of a geometric low-level controller}: A geometric controller with decoupled yaw-axis dynamics is presented, enabling precise single-UAV stabilization and control in multi-lift operations. 
 \end{enumerate}
 
 
 \newpage
 
 
-\section{Model of Multilift Systems}
+% \section{Model of Multilift Systems}
 
-\newpage
+% \newpage
 
 
 \section{Simulator Design}
 \subsection{Quadrotor Dynamics}
-\subsection{Cable Model}
+ In this subsection, we present a comprehensive overview of the quadrotor’s translational and rotational equations of motion. We then highlight the improvements introduced in the Pegasus Simulator, which result in a more accurate representation of quadrotor dynamics. Notably, all rotational quantities are expressed on the special orthogonal group 
+$\mathrm{SO}(3)$, ensuring a globally valid description of the quadrotor’s attitude.
+
+Define an inertial frame $\{\mathcal{I}\}$ and a body frame $\{\mathcal{B}\}$ fixed to the quadrotor’s center of mass. Let 
+$\mathbf{p} \in \mathbb{R}^3$
+denote the position of the quadrotor’s center of mass expressed in the inertial frame, and let
+$\mathbf{R} \in \mathrm{SO}(3)$
+describe the orientation of the body frame with respect to the inertial frame. The time derivative $\dot{\mathbf{p}} \in \mathbb{R}^3$ denotes the linear velocity, and the angular velocity in the body frame is 
+$\boldsymbol{\Omega} \in \mathbb{R}^3.$
+The vehicle has mass $m>0$, a (typically diagonal) moment of inertia matrix $\mathbf{I}\in \mathbb{R}^{3\times 3}$, and experiences gravity $g>0$ acting in the $-z$ direction of the inertial frame.
+
+\paragraph{Translational Dynamics.} 
+Newton’s second law gives the translational dynamics of the quadrotor’s center of mass. The primary external forces are gravity and the total thrust generated by the four rotors. Let $T \ge 0$ denote the total thrust, which acts along the body’s $z$-axis. Transformed into the inertial frame, the thrust vector becomes $\mathbf{R}\,\mathbf{e}_3\,T$, where $\mathbf{e}_3 = [\,0\;\;0\;\;1\,]^\top$. Consequently, the translational dynamics are
+\begin{equation}
+    m\,\ddot{\mathbf{p}} \;=\; -m\,g\,\mathbf{e}_3 \;+\; T\,\mathbf{R}\,\mathbf{e}_3.
+    \label{eq:translational_dynamics}
+\end{equation}
+
+\paragraph{Rotational Kinematics.} 
+The evolution of the orientation matrix $\mathbf{R}$ is governed by
+\begin{equation}
+    \dot{\mathbf{R}} \;=\; \mathbf{R}\,\widehat{\boldsymbol{\Omega}},
+    \label{eq:rotational_kinematics}
+\end{equation}
+where $\widehat{\boldsymbol{\Omega}}$ is the skew-symmetric matrix associated with the cross product in $\mathbb{R}^3$, namely
+\begin{equation}
+    \widehat{\boldsymbol{\Omega}} 
+    \;=\;
+    \begin{bmatrix}
+    0 & -\Omega_3 & \Omega_2 \\
+    \Omega_3 & 0 & -\Omega_1 \\
+    -\Omega_2 & \Omega_1 & 0
+    \end{bmatrix}.
+\end{equation}
+
+\paragraph{Rotational Dynamics.} 
+The rotational motion obeys Euler’s equation in the body frame:
+\begin{equation}
+    \mathbf{I}\,\dot{\boldsymbol{\Omega}} 
+    \;+\;
+    \boldsymbol{\Omega} \times \bigl(\mathbf{I}\,\boldsymbol{\Omega}\bigr)
+    \;=\;
+    \boldsymbol{\tau},
+    \label{eq:rotational_dynamics}
+\end{equation}
+where $\boldsymbol{\tau} \in \mathbb{R}^3$ is the net torque in the body frame. For a symmetric quadrotor, $\mathbf{I} = \mathrm{diag}(I_x, I_y, I_z)$ and the cross-product terms simplify, but we retain the general form in Eq.~\eqref{eq:rotational_dynamics} for completeness.
+
+\paragraph{Thrust Allocation.} 
+Each rotor generates a thrust force proportional to the square of its rotational speed. Let $\omega_i$ be the angular speed of rotor $i$, and let $b>0$ denote the thrust coefficient. Then the thrust of rotor $i$ is 
+\begin{equation}
+f_i = b\,\omega_i^2, 
+\quad i=1,\dots,4.
+\end{equation}
+Hence the total thrust $T$ is
+\begin{equation}
+    T \;=\; \sum_{i=1}^{4} f_i 
+    \;=\; b\bigl(\omega_1^2 + \omega_2^2 + \omega_3^2 + \omega_4^2 \bigr).
+    \label{eq:total_thrust}
+\end{equation}
+Additionally, each rotor creates a torque about its own axis, often modeled as 
+\begin{equation}
+\tau_{\mathrm{drag},i} = d\,\omega_i^2,
+\end{equation}
+where $d>0$ is the drag coefficient. The \emph{net} torque in the body frame arises from the combination of torques due to (1) the lateral distance of each rotor thrust from the center of mass, and (2) the drag torques induced by rotor spinning. Labeling the four rotors such that $\omega_1$ and $\omega_3$ spin in one direction, and $\omega_2$ and $\omega_4$ spin in the opposite direction, one obtains the commonly used expressions for roll, pitch, and yaw torques:
+\begin{equation}
+    \tau_{\phi} \;=\; \ell\,b\,(\omega_2^2 - \omega_4^2), 
+    \qquad
+    \tau_{\theta} \;=\; \ell\,b\,(\omega_3^2 - \omega_1^2), 
+    \qquad
+    \tau_{\psi} \;=\; d\,(\omega_1^2 - \omega_2^2 + \omega_3^2 - \omega_4^2),
+\end{equation}
+where $\ell$ is the length of each rotor arm. Stacking these into the vector $\boldsymbol{\tau} = [\,\tau_{\phi}\;\;\tau_{\theta}\;\;\tau_{\psi}\,]^\top$ yields
+\begin{equation}
+    \boldsymbol{\tau} 
+    \;=\;
+    \begin{bmatrix}
+    \tau_{\phi} \\
+    \tau_{\theta} \\
+    \tau_{\psi}
+    \end{bmatrix}.
+\end{equation}
+
+A common approach is to collect the force and torque components into a single control vector
+\begin{equation}
+    \mathbf{u}
+    \;=\;
+    \begin{bmatrix}
+    T \\[4pt]
+    \tau_{\phi} \\[3pt]
+    \tau_{\theta} \\[3pt]
+    \tau_{\psi}
+    \end{bmatrix},
+    \quad
+    \text{and define}
+    \quad
+    \boldsymbol{\omega}^2
+    \;=\;
+    \begin{bmatrix}
+    \omega_1^2 \\[4pt]
+    \omega_2^2 \\[4pt]
+    \omega_3^2 \\[4pt]
+    \omega_4^2
+    \end{bmatrix}.
+\end{equation}
+Then,
+\begin{equation}
+    \mathbf{u} 
+    \;=\;
+    \begin{bmatrix}
+    b & b & b & b \\
+    0 & \ell\,b & 0 & -\ell\,b \\
+    -\ell\,b & 0 & \ell\,b & 0 \\
+    d & -d & d & -d
+    \end{bmatrix}
+    \,\boldsymbol{\omega}^2,
+    \label{eq:allocation_matrix}
+\end{equation}
+where the $4\times4$ matrix on the right-hand side is referred to as the \emph{allocation matrix}. By inverting or pseudo-inverting this matrix, one can obtain the required rotor speeds (or squared speeds) to achieve a desired thrust and torque vector.
+
+The Pegasus Simulator incorporates detailed quadrotor dynamics within the simulation environment. However, it does not account for wind effects or aerodynamic drag \cite{martin2010true}, which can lead to inaccuracies and contribute to a significant sim-to-real gap. To further reduce this gap, we extend the simulator by incorporating wind disturbances and rolling moments, effectively modeling aerodynamic drag and external disturbances more realistically.
+
+\begin{equation}
+    \mathbf{I}\,\dot{\boldsymbol{\Omega}}
+    \;+\;
+    \boldsymbol{\Omega} \times \bigl(\mathbf{I}\,\boldsymbol{\Omega}\bigr)
+    \;=\;
+    \boldsymbol{\tau}
+    \;+\;
+    \boldsymbol{\tau}_{\mathrm{dist}},
+    \label{eq:rotational_disturbance}
+\end{equation}
+where
+\begin{equation}
+    \boldsymbol{\tau}_{\mathrm{dist}}
+    \;=\;
+    \bigl[\,
+    \tau_{\phi_d}
+    \;\;0\;\;0
+    \bigr]^\top,
+\end{equation}
+represents a wind-induced moment acting primarily about the roll axis, $\tau_{\phi_d}\in \mathbb{R}$. 
+By modeling both aerodynamic drag and rolling-moment disturbances linearly, the simulator achieves a more realistic approximation of quadrotor flight under varying wind conditions.
+
+
+\subsection{Cable Modeling}
+
+In this subsection, we introduce the mass--spring--damper (MSD) model to represent the dynamics of a flexible cable. This modeling approach is frequently employed in the simulation of slender mechanical systems under various loading and boundary conditions. The model is constructed by discretizing the cable into a finite number of lumped masses connected by linear or nonlinear springs and dampers.
+
+To outline the derivation, let us assume that the cable is subdivided into \(N\) segments, each of which is characterized by a small mass \(\Delta m\). We denote the displacement of each mass \(i\) at time \(t\) by \(\mathbf{x}_i(t) \in \mathbb{R}^3\). The governing equations arise from applying Newton's second law to each segment, taking into account both the internal elastic and damping forces between adjacent masses.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{minipage}{0.7\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/MSD_model.pdf}
+    \caption{Illustration of MSD model for cables.}
+    \label{MSD}
+  \end{minipage}
+\end{figure}
+
+
+\paragraph{Spring forces}
+In the simplest linear case, each segment is modeled using Hooke's law, where the spring force \(\mathbf{F}^{(s)}\) between two adjacent masses \(i\) and \(i+1\) is given by
+\begin{equation}
+  \mathbf{F}_{i,i+1}^{(s)} 
+  = k \Bigl( \|\mathbf{x}_{i+1} - \mathbf{x}_i\| - \ell_0 \Bigr)\,
+    \hat{\mathbf{r}}_{i,i+1},
+  \label{eq:spring_force}
+\end{equation}
+where 
+\begin{itemize}
+  \item \(k\) is the tensile stiffness of the cable,
+  \item \(\ell_0\) is the rest length of the segment,
+  \item \(\displaystyle \hat{\mathbf{r}}_{i,i+1} 
+           = \frac{\mathbf{x}_{i+1} - \mathbf{x}_i}%
+                  {\|\mathbf{x}_{i+1} - \mathbf{x}_i\|}\)
+        is the unit vector pointing from mass \(i\) to mass \(i+1\).
+\end{itemize}
+This formulation represents the elastic restoring force along the direction of the segment.
+
+\paragraph{Damping forces}
+To account for energy dissipation due to internal friction and relative motion, a linear viscous damping force is included. The damping force \(\mathbf{F}^{(d)}\) between masses \(i\) and \(i+1\) is given by
+\begin{equation}
+  \mathbf{F}_{i,i+1}^{(d)} 
+  = c \Bigl[ 
+        \bigl(\dot{\mathbf{x}}_{i+1} - \dot{\mathbf{x}}_i\bigr) 
+        \cdot \hat{\mathbf{r}}_{i,i+1} 
+      \Bigr]\,
+      \hat{\mathbf{r}}_{i,i+1},
+  \label{eq:damping_force}
+\end{equation}
+where
+\begin{itemize}
+  \item \(c\) is the damping coefficient,
+  \item \(\dot{\mathbf{x}}_{i+1}\) and \(\dot{\mathbf{x}}_i\) are the velocities of the adjacent masses.
+\end{itemize}
+The damping force acts purely along the segment and is proportional to the **relative velocity** in that direction.
+
+\paragraph{Equation of motion}
+By summing the forces acting on each mass \(i\) and applying Newton's second law, the equation of motion becomes
+\begin{equation}
+  \Delta m \,\ddot{\mathbf{x}}_i 
+  = \sum_{j \in \mathcal{N}(i)} 
+      \Bigl( \mathbf{F}_{i,j}^{(s)} + \mathbf{F}_{i,j}^{(d)} \Bigr) 
+    + \mathbf{F}_{\text{ext}},
+  \label{eq:msd_equation_of_motion}
+\end{equation}
+where
+\begin{itemize}
+  \item \(\Delta m\) is the mass associated with each segment (or each node),
+  \item \(\mathcal{N}(i)\) denotes the set of neighbors directly connected to mass \(i\),
+  \item \(\mathbf{F}_{\text{ext}}\) includes any external forces 
+        (e.g., gravity, contact, or actuation).
+\end{itemize}
+
+Equations \eqref{eq:spring_force}--\eqref{eq:msd_equation_of_motion} constitute the core of the MSD model for flexible cable dynamics. This framework can be extended to incorporate geometric nonlinearities, bending stiffness, or more complex damping models. Nonetheless, the fundamental principle remains the same: each discrete segment contributes its own inertia, elastic restoring force, and velocity-dependent damping, which together capture the global dynamic response of the cable.
+
+The configuration of the cable within the simulator is illustrated in Figure \ref{linkd6}. The rigid body link primarily represents the mass component in the physical model, while the D6 joint corresponds to a six-degree-of-freedom (6-DOF) joint, allowing translational and rotational motion along all axes. The elastic and damping properties of the system are defined by specifying appropriate stiffness and damping coefficients. By connecting the rigid body link and the D6 joint in series, the model effectively captures the cable's flexibility and elasticity.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{minipage}{0.7\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/cable_model_D6.pdf}
+    \caption{Implementation of MSD models in the simulator.}
+    \label{linkd6}
+  \end{minipage}
+\end{figure}
+
+Although the mass--spring--damper (MSD) model for cable dynamics is conceptually straightforward and relatively simple to implement, numerical challenges can arise in practical simulators. In many physics engines, the internal solver for dynamics relies on iterative methods such as the Gauss--Seidel (GS) algorithm to solve systems of equations arising from joint or constraint forces. For example, consider a linear system of the form
+\begin{equation}
+  \mathbf{A}\,\mathbf{x} = \mathbf{b},
+  \label{eq:linear_system}
+\end{equation}
+where \(\mathbf{A} \in \mathbb{R}^{n \times n}\) is a coefficient matrix, \(\mathbf{x} \in \mathbb{R}^n\) is the unknown vector, and \(\mathbf{b} \in \mathbb{R}^n\) is the right-hand side vector. The Gauss--Seidel method solves the equation \eqref{eq:linear_system} iteratively by updating one component of \(\mathbf{x}\) at a time, using the most recent updates as they become available:
+\begin{equation}
+  x_i^{(k+1)}
+  = \frac{1}{a_{ii}}\Bigl(
+      b_i
+      - \sum_{j < i} a_{ij} \, x_j^{(k+1)}
+      - \sum_{j > i} a_{ij} \, x_j^{(k)}
+    \Bigr),
+  \quad i = 1,2,\dots,n,
+\end{equation}
+where \(x_i^{(k)}\) denotes the \(i\)-th component of the vector \(\mathbf{x}\) at iteration \(k\). The iteration sweeps through \(i = 1\) to \(n\), then repeats until convergence (or failure to converge).
+
+In an MSD system, each cable or joint often introduces large entries in the global stiffness matrix \(\mathbf{A}\), particularly when the spring constant (\(k\)) or damping coefficient (\(c\)) is high. While robust time-integration schemes and solver strategies can handle moderate stiffness, when \(k\) or \(c\) become excessively large, the matrix \(\mathbf{A}\) can become ill-conditioned or exhibit very high condition numbers. This leads to the following potential issues in a Gauss--Seidel solver:
+
+\begin{enumerate}
+  \item \textbf{Slow convergence or divergence.} If \(\mathbf{A}\) is poorly conditioned, the error reduction per iteration of Gauss--Seidel can become extremely slow. In some cases, numerical round-off or small perturbations in the matrix may cause the solver to diverge rather than converge.
+
+  \item \textbf{Stiffness-induced instability.} In real-time physics simulations, large stiffness or damping forces can make the system ``stiff,'' requiring very small time steps for stability. An iterative solver like Gauss--Seidel may not converge within the allotted iteration budget if the local coupling is too strong.
+
+  \item \textbf{Limited numerical accuracy.} With large entries on the diagonal (due to high stiffness/damping), errors in floating-point arithmetic can accumulate, degrading precision and further hindering the iterative solver's convergence.
+\end{enumerate}
+
+When a system is too stiff, one can employ smaller time-step sizes or add numerical damping schemes to mitigate high-frequency effects. However, all of these strategies may increase computational cost and complexity, thus demanding a careful balance between physical realism, stability, and performance in the simulation of highly stiff or heavily damped MSD cable models.
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}{0.65\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/fault.jpg}
+    \label{failure}
+  \end{minipage}
+  \caption{Cable unstable oscillation resulting from Gauss-Seidel numerical failure}
+\end{figure}
+
+To address the aforementioned issues and ensure both the stability and real-time capability of the simulation, two primary strategies were adopted. First, the Temporal Gauss-Seidel (TGS) solver was employed in place of the conventional Gauss-Seidel (GS) method, offering improved numerical stability under stiff conditions. Second, soft constraints were applied to the stiffness and damping parameters, rather than enforcing them as hard constraints. The following sections provide a detailed discussion of these methods.
+
+\paragraph{Temporal Gauss--Seidel (TGS) Solver}
+Classical Gauss--Seidel (GS) and Projected Gauss--Seidel (PGS) methods often struggle with slow convergence or numerical instability in mass--spring--damper (MSD) systems characterized by high stiffness and damping. However, a \emph{Temporal Gauss--Seidel} (TGS) solver augments position-based updates with \emph{velocity-level} corrections at each iteration. This additional velocity damping better controls the rate of energy injection in the system, yielding improved stability and faster convergence for real-time applications.
+
+In TGS, the constraint equations are formulated in velocity space. A generic velocity-based constraint has the form
+\begin{equation}
+  \mathbf{J}\,\mathbf{v} + \mathbf{b} = 0,
+  \label{eq:tgs_constraint}
+\end{equation}
+where \(\mathbf{J}\) is the constraint Jacobian, \(\mathbf{v}\) is the vector of generalized velocities, and \(\mathbf{b}\) includes bias terms for Baumgarte stabilization or error reduction. At each TGS iteration, incremental impulses \(\Delta \boldsymbol{\lambda}\) are computed and used to update velocities:
+\begin{equation}
+  \Delta \mathbf{v} = \mathbf{M}^{-1}\,\mathbf{J}^\mathsf{T}\,\Delta \boldsymbol{\lambda},
+  \label{eq:tgs_velocity_update}
+\end{equation}
+where \(\mathbf{M}^{-1}\) is the inverse mass-inertia matrix. The velocities and positions are then updated:
+\begin{align}
+  \mathbf{v}^{(k+1)} &= \mathbf{v}^{(k)} + \Delta \mathbf{v}, \\
+  \mathbf{x}^{(k+1)} &= \mathbf{x}^{(k)} + \Delta t\,\mathbf{v}^{(k+1)},
+  \label{eq:tgs_position_update}
+\end{align}
+where \(\Delta t\) is the timestep. 
+
+Compared to standard GS or PGS, TGS explicitly handles velocity-level corrections throughout each iteration. As a result, it damps out spurious high-frequency oscillations more effectively, allowing the solver to remain stable under large stiffness or damping constants. Moreover, TGS generally requires fewer iterations to converge to a physically plausible state in real-time contexts, reducing the computational burden while preserving numerical robustness.
+
+
+% \paragraph{Soft Constraints}
+% In an MSD cable model, excessively large stiffness and damping parameters can introduce extreme force spikes when treated as rigid limits. Joint constraints in physics engines like NVIDIA PhysX typically include both a \emph{driver} part, which applies a proportional-derivative (PD) law to move a joint toward a target, and a \emph{limit} part, which enforces a positional boundary. PhysX's Temporal Gauss--Seidel (TGS) solver iteratively processes these constraints at each timestep to update velocities and positions such that the system as a whole converges to a physically plausible state.
+
+% On the one hand, the drive constraint can be expressed (for a translational degree of freedom) as
+% \begin{equation}
+%   F_{\text{drive}} 
+%   = k_{\text{drive}}\, (p_{\text{target}} - p)
+%   + c_{\text{drive}}\, (v_{\text{target}} - v),
+%   \label{eq:drive_force_TGS}
+% \end{equation}
+% where $p$ and $v$ are the current position and velocity, $p_{\text{target}}$ and $v_{\text{target}}$ are the goal position and velocity, and $k_{\text{drive}}, c_{\text{drive}}$ are stiffness and damping coefficients, respectively. On the other hand, the limit constraint remains inactive unless $p$ exceeds a boundary $p_{\max}$; once exceeded, it enforces a spring--damper response:
+% \begin{equation}
+%   F_{\text{limit}}
+%   = -\,k_{\text{limit}} \, (p - p_{\max}) 
+%     \;-\; c_{\text{limit}}\,(v),
+%   \quad \text{for } p > p_{\max}.
+%   \label{eq:limit_force_TGS}
+% \end{equation}
+% Because TGS solves constraints iteratively at each timestep, it handles the driver and limit \emph{in parallel}. If the cable segment remains within $p \le p_{\max}$, only the driver is active; if $p$ attempts to exceed $p_{\max}$, the limit constraint springs into effect to keep the segment in range.
+
+% An excessively large drive stiffness ($k_{\text{drive}} \to 10^5$ or above) can make TGS struggle to converge when no explicit limit stiffness is in place. This happens because:
+% \begin{itemize}
+%   \item The solver effectively sees a ``soft infinity'' beyond $p_{\max}$; there is no explicit boundary constraint to oppose further elongation.
+%   \item The drive itself must generate very high forces to counter any violation of its target, but these forces alone can lead to large velocity corrections from iteration to iteration.
+%   \item Such extreme parameter values can produce ill-conditioned systems, where minor numerical errors get amplified, causing jitter or divergence.
+% \end{itemize}
+% By contrast, if a \emph{limit} stiffness $k_{\text{limit}}$ is configured, then once the elongation $p$ exceeds $p_{\max}$, TGS imposes a stable spring--damper force \eqref{eq:limit_force_TGS} that counteracts large deviations. This explicit boundary condition allows TGS to converge more reliably because it can ``share the load'' between the drive (which tries to reach its target) and the limit constraint (which clamps motion at $p_{\max}$). Numerical conditioning improves substantially when the solver does not rely on a single extreme stiffness to keep the system within bounds.
+
+% Moreover, using a compliance factor $\alpha$ can soften the nominal (hard) stiffness and damping to avoid abrupt force spikes. For instance,
+% \begin{equation}
+%   K_{\text{limit}}^{\text{soft}}
+%   = \frac{K_{\text{limit}}}{1 + \alpha_k},
+%   \quad
+%   C_{\text{limit}}^{\text{soft}}
+%   = \frac{C_{\text{limit}}}{1 + \alpha_c},
+% \end{equation}
+% gradually decreases the magnitude of $k_{\text{limit}}$ and $c_{\text{limit}}$. This helps ensure that even if the drive or limit parameters must be large to capture physical behavior, they do not destabilize TGS due to excessively stiff interactions in a single iteration. Hence, combining TGS with carefully tuned drive parameters, an explicit limit constraint, and optional softening factors enables real-time MSD cable simulations with improved numerical stability, reduced oscillations, and physically consistent responses.
+
+\paragraph{Soft Constraints}
+In mass--spring--damper (MSD) cable models, imposing extremely large stiffness and damping parameters can lead to unbounded force spikes if treated as rigid constraints. In NVIDIA PhysX, each joint constraint typically comprises a \emph{driver}---which applies a proportional-derivative (PD) law to move the joint toward a target---and a \emph{limit} that enforces a positional boundary. The TGS solver iterates over these constraints at each timestep, updating velocities and positions so that the overall system converges to a physically plausible state.
+
+Concretely, for a translational degree of freedom, the \emph{driver} constraint is modeled by
+\begin{equation}
+  F_{\text{drive}} 
+  = k_{\text{drive}}\, \bigl(p_{\text{target}} - p\bigr)
+  \;+\; c_{\text{drive}}\, \bigl(v_{\text{target}} - v\bigr),
+  \label{eq:drive_force_TGS}
+\end{equation}
+where $p$ and $v$ are the current position and velocity, $p_{\text{target}}$ and $v_{\text{target}}$ are the desired position and velocity, and $k_{\text{drive}}$, $c_{\text{drive}}$ are the driver’s stiffness and damping coefficients. The \emph{limit} constraint remains inactive unless $p$ exceeds a boundary $p_{\max}$. When that occurs, the solver applies
+\begin{equation}
+  F_{\text{limit}}
+  = -\,k_{\text{limit}} \, \bigl(p - p_{\max}\bigr) 
+    \;-\; c_{\text{limit}}\,v,
+  \quad \text{for } p > p_{\max},
+  \label{eq:limit_force_TGS}
+\end{equation}
+to clamp motion at the boundary. During TGS iteration, these constraints are evaluated in parallel. If $p \le p_{\max}$, only the driver is active; if $p$ attempts to exceed $p_{\max}$, the limit constraint supplements the driver to keep the segment within range.
+
+When $k_{\text{drive}}$ grows excessively large (e.g., on the order of $10^5$ or more) without a corresponding limit stiffness, TGS can struggle to converge. From the solver's perspective, any elongation beyond $p_{\max}$ must be corrected solely by very large drive forces, leading to:
+\begin{itemize}
+  \item No explicit boundary constraint to resist further elongation, effectively creating a ``soft infinity'' for $p>p_{\max}$.
+  \item Large, rapidly changing velocities as TGS attempts to satisfy a single extreme-stiffness constraint.
+  \item Ill-conditioned equations that amplify minor numerical errors, resulting in jitter or divergence.
+\end{itemize}
+Conversely, if a limit stiffness $k_{\text{limit}}$ is configured, then once $p$ exceeds $p_{\max}$, the solver imposes a stable spring--damper force~\eqref{eq:limit_force_TGS} rather than relying on drive forces alone. Splitting the total load between the drive (maintaining its target) and the limit constraint (clamping elongation) greatly improves numerical conditioning and convergence.
+
+% Introducing a compliance factor $\alpha$ helps avoid abrupt force spikes by scaling down nominally large stiffness or damping. For instance,
+% \begin{equation}
+%   K_{\text{limit}}^{\text{soft}}
+%   = \frac{K_{\text{limit}}}{1 + \alpha_{k}}, 
+%   \quad
+%   C_{\text{limit}}^{\text{soft}}
+%   = \frac{C_{\text{limit}}}{1 + \alpha_{c}},
+% \end{equation}
+% lowers $k_{\text{limit}}$ and $c_{\text{limit}}$ to reduce excessive forces within a single iteration.
+
+By combining TGS with thoughtfully chosen driver parameters and an explicit limit constraint, one can achieve real-time MSD cable simulations that offer improved numerical stability, reduced oscillations, and physically consistent behavior.
+
 
 \newpage
 
 
 \section{Multilift Algorithm Implementation}
-\subsection{Auto-Multilift Algorithm}
 \subsection{Low-levle Controller}
-\subsection{ROS System Design}
-% \subsection{Algorithm Accleration}
+A geometric controller\cite{geose3} operates directly on the configuration space \(\mathrm{SO}(3)\) to ensure robust and globally valid rotational error definitions. In the context of multirotor platforms, the position dynamics can be separated from the attitude dynamics by using geometric principles, while the yaw angle is decoupled to allow independent heading control\cite{geoyaw}. This approach makes it possible to design a low-level controller that regulates both the thrust (for position tracking) and the body orientation (for attitude tracking) in a coherent framework.
+
+Consider a multirotor with position \(\mathbf{x} \in \mathbb{R}^3\) and orientation \(R \in \mathrm{SO}(3)\). Let \(\mathbf{x}_d\) be the desired position trajectory, and \(\dot{\mathbf{x}}_d\), \(\ddot{\mathbf{x}}_d\) be the desired velocity and acceleration. Let \(\psi_d\) be the desired yaw angle. We define the position and velocity errors as
+\begin{equation}
+\mathbf{e}_p = \mathbf{x} - \mathbf{x}_d, 
+\quad
+\mathbf{e}_v = \dot{\mathbf{x}} - \dot{\mathbf{x}}_d.
+\end{equation}
+A simple proportional-derivative-based desired acceleration command for position tracking can be formulated as
+\begin{equation}
+\mathbf{a}_d = \ddot{\mathbf{x}}_d 
+- k_p\,\mathbf{e}_p 
+- k_v\,\mathbf{e}_v 
++ g \mathbf{e}_3,
+\end{equation}
+where \(\mathbf{e}_3 = [0 \;\; 0 \;\; 1]^\top\) represents the global vertical axis, \(g\) is the gravitational acceleration, and \(k_p, k_v > 0\) are proportional and derivative gains.
+
+The total thrust command \(f\) is then given by
+\begin{equation}
+f = m \|\mathbf{a}_d\|,
+\end{equation}
+where \(m\) is the mass of the vehicle. To find the desired orientation \(R_d\) that orients the body \(z\)-axis toward \(\mathbf{a}_d\) while simultaneously achieving the desired yaw \(\psi_d\), we define
+\begin{equation}
+\hat{\mathbf{b}}_3 = \frac{\mathbf{a}_d}{\|\mathbf{a}_d\|}, 
+\end{equation}
+which is the desired body \(z\)-axis direction. The desired body \(x\)-axis \(\hat{\mathbf{b}}_1\) is chosen to lie in the horizontal plane according to the desired yaw angle \(\psi_d\). One way to obtain \(\hat{\mathbf{b}}_1\) is
+\begin{equation}
+\hat{\mathbf{b}}_{1}^{*} = 
+\begin{bmatrix}
+\cos(\psi_{d}) \\
+\sin(\psi_{d}) \\
+0
+\end{bmatrix},
+\quad
+\hat{\mathbf{b}}_{2} = \frac{\hat{\mathbf{b}}_{3} \times \hat{\mathbf{b}}_{1}^{*}}{\|\hat{\mathbf{b}}_{3} \times \hat{\mathbf{b}}_{1}^{*}\|},
+\quad
+\hat{\mathbf{b}}_{1} = \hat{\mathbf{b}}_{2} \times \hat{\mathbf{b}}_{3}.
+\end{equation}
+
+\begin{equation}
+R_{d} = 
+\begin{bmatrix}
+\hat{\mathbf{b}}_{1} & \hat{\mathbf{b}}_{2} & \hat{\mathbf{b}}_{3}
+\end{bmatrix}.
+\end{equation}
+This construction enforces the decoupling of yaw, because \(\psi_d\) is used explicitly to shape the desired heading, while the other two axes are defined by the thrust direction.
+
+Attitude errors can be defined in a global, coordinate-free way using the fact that if \(R_d \in \mathrm{SO}(3)\) is the desired orientation, then the orientation error \(e_R\) and angular velocity error \(e_\Omega\) can be set as
+\begin{equation}
+e_R = \frac{1}{2} \bigl(R_d^T R - R^T R_d \bigr)^\vee, 
+\quad
+e_\Omega = \Omega - R^T R_d\,\Omega_d,
+\end{equation}
+where \(\Omega\) is the body angular velocity, \(\Omega_d\) is the desired angular velocity derived from the reference, and \((\cdot)^\vee\) maps a skew-symmetric matrix in \(\mathfrak{so}(3)\) to \(\mathbb{R}^3\). A typical feedback control law for the moment \(\mathbf{M}\) is
+\begin{equation}
+\mathbf{M} 
+= -k_R\,e_R 
+- k_\Omega\,e_\Omega 
++ \Omega \times J\,\Omega 
+- J \bigl(\hat{\Omega} R^T R_d \Omega_d - R^T R_d\,\dot{\Omega}_d \bigr),
+\end{equation}
+where \(k_R, k_\Omega > 0\) are gains, \(J\) is the inertia matrix, and \(\hat{\Omega}\) is the skew-symmetric matrix representation of \(\Omega\). This ensures that the actual orientation \(R\) follows \(R_d\) while allowing for an independent yaw specification.
+
+In summary, the geometric controller with decoupled yaw control provides a unified way to track position and yaw independently by constructing the desired orientation matrix from the desired thrust direction and yaw angle. This approach leverages \(\mathrm{SO}(3)\)-based error definitions to avoid singularities and discontinuities, yielding a smooth and globally valid low-level controller.
+
+\subsection{SITL System Design}
+\label{sec:sitl_system_design}
+
+Figure~\ref{fig:sys_implement} depicts the software-in-the-loop (SITL) architecture that integrates the PX4 autopilot, Isaac Sim, ROS~2, and the Auto-Multilift algorithm into a cohesive simulation environment. Communication interface is established between the PX4 firmware and Isaac Sim through MAVLink, ensuring that simulated sensor data and flight commands are exchanged accurately in real time. The simulator provides high-fidelity sensor outputs, while PX4 responds with motor commands for attitude and position control.
+
+On the ROS~2 side, several specialized nodes handle trajectory planning, high-level control, and data synchronization. The Geometric Control node processes state estimates from PX4 and generates reference attitudes and thrust commands to maintain stable flight. These references incorporate decoupled yaw regulation, thereby allowing the heading to be controlled independently of thrust and pitch–roll dynamics. Meanwhile, a separate Trajectory Planner node computes mission waypoints for multi-lift operations from the MPC Planner, where the Auto-Multilift method adjusted key parameters of MPC to improve tracking performance and robustness.
+
+This SITL pipeline employs an additional time-synchronization mechanism to minimize latency and drift across multiple UAVs and ROS~2. A specialized node broadcasts clock updates, aligning measurement and control signals to a consistent temporal reference. Meanwhile, PX4 and Isaac Sim remain synchronized through a built-in lockstep procedure. By combining accurate multi-UAV load-transport simulations with flight-proven control software, the SITL setup provides a robust platform for validating the proposed methods before transitioning to physical flight tests.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{figures/sys3.pdf}
+    \caption{SITL framework for Auto-Multilift}
+    \label{fig:sys_implement}
+\end{figure}
+
 
 \newpage
 \section{Experimental Results}
+\subsection{Cable Dynamics Test}
+
+\subsection{Multilift Trajectory Following}
+
+
 
 \newpage
 \section{Conclusion}
