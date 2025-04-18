@@ -23,6 +23,11 @@
     \section*{Abstract}
 \end{center}
 \addcontentsline{toc}{section}{Abstract}
+ Multi-lift aerial transportation, in which multiple quadrotors collaboratively carry a common payload via cables, has been extensively explored to enhance load-carrying capacity and increase system redundancy. However, existing simulation platforms and software pipelines have not matured to meet the complex requirements of such tasks. In particular, there is currently no comprehensive simulator that seamlessly integrates all the necessary components for multi-lift research: Isaac Sim for high-fidelity physics, PX4 for low-level flight control, ROS for communication and orchestration, and self-defined reinforcement learning (RL) algorithms for high-level policy training. The absence of such toolchain not only limits the ability to test advanced control and learning strategies but also makes it difficult to bridge the gap between simulated performance and real-world behavior.
+
+In this work, we develop a high-fidelity software-in-the-loop (SITL) framework for multi-lift aerial transportation that addresses these challenges. Building on Isaac Sim’s Temporal Gauss–Seidel (TGS) solver, we introduce a mass–spring–damper (MSD) cable model capable of handling highly stiff tethers under real-time constraints. This ensures a stable and accurate representation of cable dynamics in various cooperative load-sharing scenarios. Meanwhile, we integrate PX4-based flight controllers and ROS\,2 communication layers to achieve minimal-latency data exchange and synchronized state estimation. A geometric controller with decoupled yaw regulation is implemented as a robust low-level flight-control strategy, while the system architecture accommodates self-defined RL modules for distributed learning of high-level control policies.
+
+Through extensive tests—ranging from basic cable-dynamics validation to cooperative trajectory tracking with multiple UAVs—the proposed platform demonstrates reliable real-time operation and consistent tracking accuracy. In addition, the design naturally accommodates wind disturbances and varying payload conditions, thus expanding the scope of scenarios that can be evaluated. While this framework lays a strong foundation for the simulation of multi-lift systems, future efforts will focus on refining aerodynamic models (e.g., rotor wash, turbulence) and incorporating hardware-in-the-loop components for more seamless transitions to physical flight tests. Overall, the presented SITL environment provides a long-awaited solution for validating advanced learning and control algorithms in multi-lift tasks and paves the way for safer, more efficient aerial cargo transport.
 
 \newpage
 
@@ -30,13 +35,13 @@
     \section*{Acknowledgement}
 \end{center}
 \addcontentsline{toc}{section}{Acknowledgement}
-My time as a Master’s student at the National University of Singapore, in the Department of Electrical and Computer Engineering, has been both a challenging and enriching experience. Over the course of this journey, I’ve had the privilege to engage in academic research, explore new areas within engineering, and develop both personally and intellectually. This report is a reflection of that journey—shaped not only by my efforts but also by the generous support, guidance, and encouragement I’ve received from many along the way.
+My time as a Master’s student at the NUS - ECE has been both a challenging and enriching experience. Over the course of this journey, I’ve had the privilege to engage in academic research, explore new areas within engineering, and develop both personally and intellectually. This report is a reflection of that journey, which is shaped not only by my efforts but also by the generous support, guidance, and encouragement I’ve received from many along the way.
 
-Foremost among those I wish to acknowledge is my supervisor, Dr. Zhao Lin, whose exceptional mentorship has been profoundly influential throughout my academic journey. As a distinguished scholar in optimization and learning theory, Prof. Zhao has provided invaluable guidance that has significantly shaped the direction and depth of my research. His insightful feedback and unwavering support have greatly enriched my understanding of these complex fields and have been instrumental in my academic and personal development.  Moreover, Prof. Zhao's integrity, genuine kindness, and unwavering support have greatly inspired me and shaped my approach to both research and collaboration.
+Foremost among those I wish to acknowledge is my supervisor, Dr. Zhao Lin, whose exceptional mentorship has been profoundly influential throughout my academic journey. Prof. Zhao has provided invaluable guidance that has significantly shaped the direction and depth of my research. His insightful feedback and unwavering support have greatly enriched my understanding of these complex fields and have been instrumental in my academic and personal development.  
 
-I would also like to extend my heartfelt thanks to Dr. Wang Bingheng for his continuous support in both academic research and coursework. Dr. Wang is a dedicated and meticulous scholar, whose seriousness and unwavering commitment to scientific inquiry have profoundly influenced me. His disciplined approach to research and his high standards of academic excellence serve as a source of inspiration. His mentorship has played a crucial role in my development, and I am deeply thankful for his guidance.
+I would also like to extend my thanks to Dr. Wang Bingheng for his support in both academic research and coursework. Dr. Wang is a dedicated scholar, whose seriousness and unwavering commitment to scientific inquiry have profoundly influenced me. 
 
-In addition, I would like to express my gratitude for the help and support of many researchers, friends, and staff, including but not limited to Dr. He Lei, Sun Tianchen, Sima Kuankuan, Huang Rui and Chen Xin. Their valuable advice and insightful perspectives on academic topics have significantly contributed to my progress in research. Their knowledge and discussions on cutting-edge UAV control technologies have broadened my understanding and deepened my interest in the field. Special thanks go to Tang Longbin, a close friend and collaborative partner, whose support in coursework and enthusiastic teamwork made the learning experience both productive and enjoyable. 
+In addition, I would like to express my gratitude for the support of many researchers and friends, including but not limited to Dr. He Lei, Sun Tianchen, Sima Kuankuan, Huang Rui and Chen Xin. Their advice and insightful perspectives on academic topics have significantly contributed to my progress in research. Special thanks go to Tang Longbin, for making both coursework and research endeavors productive and enjoyable.
 
 Lastly, I extend my deepest gratitude to my family—my parents and my sister—for their unwavering love and support. Their encouragement and belief in me have been my foundation throughout this journey, giving me the strength and confidence to pursue my goals.
 
@@ -66,9 +71,9 @@ Lastly, I extend my deepest gratitude to my family—my parents and my sister—
 
     \begin{figure}[H]
     \centering
-    \begin{minipage}{0.6\textwidth}
+    \begin{minipage}{0.5\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{figures/Signature.jpeg}
+        \includegraphics[width=\linewidth]{figures/sign.jpeg}
         \vspace{0.5cm}
         \caption*{April 1st, 2025}
         \label{fig:minipage-example}
@@ -513,7 +518,7 @@ By combining TGS with thoughtfully chosen driver parameters and an explicit limi
 
 
 \section{Multilift Algorithm Implementation}
-\subsection{Low-levle Controller}
+\subsection{Low-level Controller}
 A geometric controller\cite{geose3} operates directly on the configuration space \(\mathrm{SO}(3)\) to ensure robust and globally valid rotational error definitions. In the context of multirotor platforms, the position dynamics can be separated from the attitude dynamics by using geometric principles, while the yaw angle is decoupled to allow independent heading control\cite{geoyaw}. This approach makes it possible to design a low-level controller that regulates both the thrust (for position tracking) and the body orientation (for attitude tracking) in a coherent framework.
 
 Consider a multirotor with position \(\mathbf{x} \in \mathbb{R}^3\) and orientation \(R \in \mathrm{SO}(3)\). Let \(\mathbf{x}_d\) be the desired position trajectory, and \(\dot{\mathbf{x}}_d\), \(\ddot{\mathbf{x}}_d\) be the desired velocity and acceleration. Let \(\psi_d\) be the desired yaw angle. We define the position and velocity errors as
@@ -597,18 +602,174 @@ This SITL pipeline employs an additional time-synchronization mechanism to minim
 
 
 \newpage
-\section{Experimental Results}
+\section{Experiments \& Results}
 \subsection{Cable Dynamics Test}
+To verify that our cable simulation behaves as intended, we conducted a series of experiments in which the overall cable stiffness and damping were set to \(10^5\)\,N/m and \(10^3\)\,Ns/m, respectively.
+The primary goal of these experiments was to assess the accuracy of the cable’s elasticity modeling and the real-time performance of the simulation.
+Throughout the experiments, the theoretical model of cables was considered as an ideal second-order system characterized by a stiffness of \(10^5\)\,N/m and a damping coefficient of \(10^3\)\,Ns/m along its extension.
+This theoretical model forms the basis for evaluating the cable’s elongation accuracy.
+
+We designed two main experiments. In the first experiment, weights ranging from 0.1\,kg to 5\,kg were suspended from a single rope and allowed to fall freely under gravity.
+Displacements, determined by the interplay of gravitational and tensile forces, were then measured.
+In the second experiment, a multi-rope configuration was employed, in which six ropes were arranged at angles 30\(^\circ\)  from the vertical.
+The displacement curves for the suspended weights were recorded and compared against theoretical predictions.
+
+\begin{figure}[ht]
+    \centering
+    \begin{minipage}[t]{0.49\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/single_test.jpg}
+        \caption{Single cable test scene}
+        \label{fig:single_test}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.49\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/multi_test.jpg}
+        \caption{Six cable test scene}
+        \label{fig:multi_test}
+    \end{minipage}
+\end{figure}
+
+Table~\ref{tab:single_cable_results} summarizes the representative single-cable results. The tested stiffness values remain close to \(10^5\,\text{N/m}\), with a maximum relative error of 2.2\%. These data confirm that the simulation captures the cable’s elasticity well, especially given the wide range of payloads tested. This also indicates that during the process of numerical iteration of the simulation, the damping force determined by the chosen damping coefficient, \(10^3\,\text{Ns/m}\), provides a sufficiently rapid settling time without causing a numerical instability.
+
+\begin{table}[ht]
+    \centering
+    \caption{Results of the single-cable test for varying payload masses.}
+    \label{tab:single_cable_results}
+    \begin{tabular}{ccc}
+    \toprule
+    \makebox[0.25\textwidth][c]{\textbf{Payload (kg)}} & 
+    \makebox[0.35\textwidth][c]{\textbf{Tested Stiffness (N/m)}} & 
+    \makebox[0.30\textwidth][c]{\textbf{Relative Error (\%)}} \\
+    \midrule
+    0.1 & $1.000\times10^5$ & 0.0 \\
+    0.5 & $1.000\times 10 ^5$ & 0.0 \\
+    1.0 & $9.995\times10^4$ &  0.5\\
+    5.0 & $9.978\times10^4$ & 2.2 \\
+    \bottomrule
+    \end{tabular}
+\end{table}
+
+Figures~\ref{fig:case1}--\ref{fig:case4} illustrate how the elongations of single cables evolve under various mass of payloads. In each case, the rope elongation exhibits small oscillations around the expected theoretical second-order response, settling rapidly toward the predicted equilibrium.
+ These minor deviations stem from numerical rounding in the real-time simulation but remain within acceptable margins. Overall, the tests validate that our model’s stiffness and damping parameters yield physically consistent dynamics and maintain stability across different load conditions.
+
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/0.1s.jpg}
+        \caption{Single cable with 0.1 Kg payload}
+        \label{fig:case1}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/0.5s.jpg}
+        \caption{Single cable with 0.5 Kg payload}
+        \label{fig:case2}
+    \end{minipage}
+    
+    \vspace{0.5cm}
+
+    \begin{minipage}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/1s.jpg}
+        \caption{Single cable with 1 Kg payload}
+        \label{fig:case3}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/5s.jpg}
+        \caption{Single cable with 5 Kg payload}
+        \label{fig:case4}
+    \end{minipage}
+\end{figure}
+
+
+Figure~\ref{fig:multi1}-\ref{fig:multi3} present the results of the six-cable experiments conducted with varying payload masses.
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/multi_6.jpg}
+        \caption{6 cables with 6 Kg payload}
+        \label{fig:multi1}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/multi_30.jpg}
+        \caption{6 cables with 30 Kg payload}
+        \label{fig:multi2}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/multi_60.jpg}
+        \caption{6 cables with 60 Kg payload}
+        \label{fig:multi3}
+    \end{minipage}
+\end{figure}
+
+As illustrated in Figures~\ref{fig:multi1}--\ref{fig:multi3}, the multi-cable system can be simulated in real time while maintaining excellent agreement with theoretical predictions across a wide range of payload masses. For lighter payloads (e.g., 6\,kg), the system displays mild overshoot and rapid settling, consistent with classic second-order system behavior. Increasing the payload to 30\,kg and 60\,kg introduces more noticeable oscillations and longer settling times, which match the anticipated decrease in natural frequency for higher mass-to-stiffness ratios. 
+
+Despite these larger oscillations at higher loads, the simulated elongation remains centered around the theoretical curve, indicating both numerical stability and high physical accuracy. These findings confirm that the multi-cable system—designed with the specified stiffness and damping parameters—delivers real-time performance without compromising on fidelity, accurately capturing force distribution and dynamic effects even in challenging multi-rope scenarios.
 
 \subsection{Multilift Trajectory Following}
+To comprehensively assess the design of the SITL multi-lift system, we conducted a detailed trajectory-following experiment in which each quadrotor was commanded to travel along a horizontal circular path with a 5,m radius, at a constant angular velocity of 0.2,rad/s. The linear velocity for each quadrotor is therefore 2,m/s. This circular motion ensures that the system experiences continuous, varying orientations of tension and load distribution among the drones. Additionally, each drone’s yaw angle was continuously adjusted so that its forward axis aligned tangentially to the circle, keeping the drone oriented in the direction of travel. By enforcing these conditions, the experiment provides a rigorous test of the geometric controller’s ability to maintain both formation and accurate tracking. The experiment offers valuable insight into the overall system stability under dynamic load-sharing and highlights how effectively the geometric controller can execute coordinated maneuvers in real time.
 
+The different states of the quadrotors during this experiment—takeoff, hover, and task execution—are shown in Figure~\ref{fig:takeoff}-\ref{fig:task}. As illustrated in these figures, the system transitions smoothly from a static ground state into a fully airborne formation without significant overshoot or drift. During the \emph{takeoff} phase (Figure~\ref{fig:takeoff}), the quadrotors ascend while maintaining relative positions; cables remain slack and show its flexibility.  In the \emph{hover} phase (Figure~\ref{fig:hover}), each vehicle maintains a stable altitude above the ground, allowing us to verify that the geometric controller can hold the formation in place with minimal oscillation. Finally, in the \emph{task} phase (Figure~\ref{fig:task}), the quadrotors proceed along the circular path with precise velocity and orientation control, thus achieving the trajectory-following objective.
 
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/takeoff.jpg}
+        \caption{Takeoff}
+        \label{fig:takeoff}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/hover.jpg}
+        \caption{Hover}
+        \label{fig:hover}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/spin.jpg}
+        \caption{Task}
+        \label{fig:task}
+    \end{minipage}
+\end{figure}
+
+The position and orientation tracking errors for individual quadrotors were also monitored throughout the experiment. The trajectory for one of the drones is visualized in Figure \ref{fig:track}. Average position-tracking errors remained under 3\,cm from the reference trajectory, underscoring the effectiveness of the control algorithm in regulating the system’s translational dynamics. Meanwhile, the yaw angles consistently followed the intended tangential orientation, with deviations not exceeding 1\(^\circ\). These results demonstrate the capacity of the multi-lift system to maintain coherent, formation-level control, even under relatively high-speed maneuvers.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{\textwidth}
+        \centering
+        \includegraphics[width=0.45\linewidth]{figures/track.jpg}
+        \caption{Trajectory tracking visualization in Rviz}
+        \label{fig:track}
+    \end{minipage}
+\end{figure}
+
+Overall, the multilift trajectory-following experiment validates the system’s ability to coordinate multiple quadrotors sharing a payload, while maintaining precise tracking of a dynamically path. The low position-tracking errors and stable orientation control collectively confirm that the designed system for multilift simulation is effective and robust for complex SITL cooperative transport tasks.
 
 \newpage
 \section{Conclusion}
 
-\newpage
-\section{Future Works}
+In this work, a high-fidelity simulation and control framework for multi-lift aerial transportation is developed and validated. The proposed system integrates Isaac Sim’s TGS solver with a mass–spring–damper (MSD) cable model, ensuring stable real-time dynamics for highly stiff tethering. A robust SITL pipeline, combining PX4, ROS\,2, and a geometric controller with decoupled yaw regulation, was demonstrated to achieve accurate multi-quadrotor trajectory tracking for cooperative load transport. Experimental results show that the simulator faithfully captures cable elasticity and damping behavior under a range of payloads and cable configurations, while sustaining minimal tracking error in dynamic maneuvers.
+
+However, there remain several areas where further refinements are warranted. While wind-induced disturbances were modeled, aerodynamic interactions (e.g., rotor down wash, turbulent wakes) have not been comprehensively addressed. Future work will investigate these higher-order effects to reduce the sim-to-real gap and improve robustness in real-world deployments. Despite these limitations, the presented framework offers a solid foundation for distributed learning and control algorithms in multi-lift applications, with the flexibility to incorporate more advanced dynamics and hardware-in-the-loop testing moving forward.
+
+% \newpage
+% \section{Future Works}
 
 
 \newpage
