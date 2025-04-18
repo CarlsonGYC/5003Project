@@ -6,7 +6,7 @@ This template is modified from [Jean-Pierre Hicke's Format](https://www.overleaf
 
 ⭐Star my repository if it's useful for you😉
 
-[View PDF doc here](./NUS_Report_Template.pdf).
+[View PDF doc here](./5003Project.pdf).
 
 <img src="./template.png" style="zoom:60%">
 
